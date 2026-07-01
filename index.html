@@ -176,8 +176,9 @@ body {
 </div>
 
 <!-- 联系方式 -->
-<div class="client-bar" style="margin-top:-8px;">
-  <input type="text" id="contactInput" placeholder="客户联系方式（手机/微信）..." onchange="onContactChange()" style="flex:1;padding:10px 12px;border:1px solid rgba(0,0,0,.1);border-radius:var(--radius);font-size:14px;background:var(--white);color:var(--text);">
+<div class="client-bar" style="margin-top:-8px; gap:6px;">
+  <input type="tel" id="phoneInput" maxlength="11" placeholder="手机号（11位）" onchange="onPhoneChange()" oninput="this.value=this.value.replace(/\D/g,'')" style="flex:1;padding:10px 12px;border:1px solid rgba(0,0,0,.15);border-radius:var(--radius);font-size:14px;background:var(--white);color:var(--text);">
+  <input type="text" id="otherContactInput" placeholder="微信/邮箱/座机..." onchange="onOtherContactChange()" style="flex:1;padding:10px 12px;border:1px solid rgba(0,0,0,.15);border-radius:var(--radius);font-size:14px;background:var(--white);color:var(--text);">
 </div>
 
 <!-- 扫码区 -->
@@ -416,25 +417,41 @@ function onClientChange() {
   currentClientId = v ? parseInt(v) : null;
   if (currentClientId) {
     localStorage.setItem('expo_lastClient', currentClientId);
-    // 加载该客户的联系方式
-    const saved = localStorage.getItem(`expo_contact_${currentClientId}`);
-    document.getElementById('contactInput').value = saved || '';
+    document.getElementById('phoneInput').value = localStorage.getItem(`expo_phone_${currentClientId}`) || '';
+    document.getElementById('otherContactInput').value = localStorage.getItem(`expo_other_${currentClientId}`) || '';
     refreshItems();
   } else {
     document.getElementById('itemList').innerHTML = '<div class="empty-state"><div class="icon">👆</div><p>请先选择或新建客户</p></div>';
-    document.getElementById('contactInput').value = '';
+    document.getElementById('phoneInput').value = '';
+    document.getElementById('otherContactInput').value = '';
     updateFooter();
   }
 }
 
-function onContactChange() {
+function onPhoneChange() {
   if (!currentClientId) return;
-  const val = document.getElementById('contactInput').value.trim();
-  if (val) {
-    localStorage.setItem(`expo_contact_${currentClientId}`, val);
-  } else {
-    localStorage.removeItem(`expo_contact_${currentClientId}`);
+  const val = document.getElementById('phoneInput').value.trim();
+  val ? localStorage.setItem(`expo_phone_${currentClientId}`, val) : localStorage.removeItem(`expo_phone_${currentClientId}`);
+}
+function onOtherContactChange() {
+  if (!currentClientId) return;
+  const val = document.getElementById('otherContactInput').value.trim();
+  val ? localStorage.setItem(`expo_other_${currentClientId}`, val) : localStorage.removeItem(`expo_other_${currentClientId}`);
+}
+
+/* 校验联系方式：手机号和其他联系方式至少填一个 */
+function validateContact() {
+  const phone = document.getElementById('phoneInput').value.trim();
+  const other = document.getElementById('otherContactInput').value.trim();
+  if (!phone && !other) {
+    toast('⚠️ 请至少填写手机号或其他联系方式中的一项');
+    return false;
   }
+  if (phone && phone.length !== 11) {
+    toast('⚠️ 手机号必须是11位数字');
+    return false;
+  }
+  return true;
 }
 
 function openNewClientModal() {
@@ -495,6 +512,7 @@ function updateFooter() {
 
 /* ── 添加产品 ── */
 async function doAddProduct(code) {
+  if (!validateContact()) return;
   if (!currentClientId) { toast('请先选择客户'); return; }
   if (!code || code.length < 2) { toast('产品编号无效'); return; }
   const ok = await addItem(currentClientId, code.toUpperCase().trim());
@@ -608,13 +626,14 @@ async function exportCSV() {
   const client = clients.find(c => c.id === currentClientId);
   const clientName = client ? (client.company || client.name) : '未知客户';
 
-  const contact = localStorage.getItem(`expo_contact_${currentClientId}`) || '';
+  const phone = localStorage.getItem(`expo_phone_${currentClientId}`) || '';
+  const other = localStorage.getItem(`expo_other_${currentClientId}`) || '';
 
-  let csv = '\uFEFF客户,联系方式,产品编号,备注,采集时间\n'; // BOM for Excel
+  let csv = '\uFEFF客户,手机号,其他联系方式,产品编号,备注,采集时间\n';
   items.forEach(i => {
     const d = new Date(i.createdAt);
     const ts = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')} ${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`;
-    csv += `${clientName},"${contact}","${i.code}","${i.note}",${ts}\n`;
+    csv += `${clientName},"${phone}","${other}","${i.code}","${i.note}",${ts}\n`;
   });
 
   const blob = new Blob([csv], { type:'text/csv;charset=utf-8' });
