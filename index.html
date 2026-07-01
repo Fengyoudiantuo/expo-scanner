@@ -1,0 +1,651 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>展会扫码采集</title>
+<link rel="manifest" href="manifest.json">
+<script src="html5-qrcode.min.js"></script>
+<style>
+:root {
+  --blue: #1a4a7a;
+  --blue-l: #3a7cc3;
+  --white: #fff;
+  --bg: #f4f7fb;
+  --card: #fff;
+  --text: #1a1a2e;
+  --text-l: #6b7280;
+  --red: #e85d3a;
+  --green: #10b981;
+  --radius: 12px;
+  --shadow: 0 2px 12px rgba(0,0,0,.06);
+}
+* { margin:0; padding:0; box-sizing:border-box; }
+body {
+  font-family: -apple-system,"PingFang SC","Microsoft YaHei",sans-serif;
+  background: var(--bg); color: var(--text); min-height:100vh;
+  max-width:480px; margin:0 auto; padding:16px;
+}
+
+/* 顶部 */
+.header {
+  display:flex; align-items:center; justify-content:space-between;
+  padding:12px 0 16px; border-bottom:1px solid rgba(0,0,0,.06); margin-bottom:16px;
+}
+.header h1 { font-size:20px; font-weight:700; color:var(--blue); }
+.header .badge {
+  font-size:12px; color:var(--blue-l); background:rgba(58,124,195,.1);
+  padding:4px 12px; border-radius:20px;
+}
+
+/* 客户选择 */
+.client-bar {
+  display:flex; gap:8px; margin-bottom:16px; align-items:center;
+}
+.client-bar select {
+  flex:1; padding:10px 12px; border:1px solid rgba(0,0,0,.1); border-radius:var(--radius);
+  font-size:14px; background:var(--white); color:var(--text);
+  appearance:none; background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12'%3E%3Cpath d='M2 4l4 4 4-4' stroke='%236b7280' fill='none'/%3E%3C/svg%3E");
+  background-repeat:no-repeat; background-position:right 12px center;
+}
+.btn {
+  padding:10px 16px; border:none; border-radius:var(--radius); font-size:14px; font-weight:600;
+  cursor:pointer; transition:.2s; white-space:nowrap;
+}
+.btn-blue { background:var(--blue); color:#fff; }
+.btn-blue:active { background:#12345a; }
+.btn-outline { background:transparent; border:1.5px solid var(--blue); color:var(--blue); }
+.btn-outline:active { background:rgba(26,74,122,.06); }
+.btn-sm { padding:6px 12px; font-size:12px; }
+
+/* 扫码区 */
+.scan-section {
+  background:var(--card); border-radius:var(--radius); box-shadow:var(--shadow);
+  overflow:hidden; margin-bottom:16px;
+}
+#reader { width:100%; }
+.scan-section .status {
+  padding:12px 16px; font-size:13px; color:var(--text-l); text-align:center;
+  border-top:1px solid rgba(0,0,0,.04);
+}
+.scan-actions {
+  display:flex; gap:8px; padding:0 16px 16px; justify-content:center;
+}
+
+/* 手动输入 */
+.manual-add {
+  background:var(--card); border-radius:var(--radius); box-shadow:var(--shadow);
+  padding:16px; margin-bottom:16px; display:flex; gap:8px;
+}
+.manual-add input {
+  flex:1; padding:10px 12px; border:1px solid rgba(0,0,0,.1); border-radius:8px;
+  font-size:15px; font-family:monospace;
+}
+.manual-add input::placeholder { color:#c0c7cf; }
+
+/* 产品清单 */
+.list-header {
+  display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;
+}
+.list-header h3 { font-size:15px; }
+.list-header .count { font-size:13px; color:var(--text-l); }
+.item-card {
+  background:var(--card); border-radius:var(--radius); box-shadow:var(--shadow);
+  padding:14px 16px; margin-bottom:8px; display:flex; align-items:center;
+  gap:12px; transition:.2s;
+}
+.item-card:active { background:#f8fafc; }
+.item-num { font-size:13px; font-weight:700; color:var(--blue); }
+.item-code {
+  flex:1; font-family:monospace; font-size:15px; font-weight:600;
+  letter-spacing:0.5px;
+}
+.item-note {
+  font-size:12px; color:var(--text-l); margin-top:2px;
+}
+.item-del {
+  width:32px; height:32px; border-radius:50%; border:none;
+  background:rgba(232,93,58,.1); color:var(--red); font-size:18px;
+  cursor:pointer; display:flex; align-items:center; justify-content:center;
+}
+
+/* 底部操作栏 */
+.footer-bar {
+  position:sticky; bottom:16px;
+  background:var(--card); border-radius:var(--radius); box-shadow:0 -2px 16px rgba(0,0,0,.08);
+  padding:12px 16px; display:flex; gap:10px; align-items:center;
+}
+.footer-bar .total { font-size:13px; color:var(--text-l); white-space:nowrap; }
+.footer-bar .actions { flex:1; display:flex; gap:8px; justify-content:flex-end; }
+.btn-green { background:var(--green); color:#fff; }
+.btn-green:active { background:#059669; }
+.btn-green:disabled { background:#a7f3d0; color:#fff; cursor:not-allowed; }
+
+/* Toast */
+.toast {
+  position:fixed; top:20px; left:50%; transform:translateX(-50%);
+  background:#1a1a2e; color:#fff; padding:10px 24px; border-radius:24px;
+  font-size:14px; z-index:999; opacity:0; transition:opacity .3s;
+  pointer-events:none;
+}
+.toast.show { opacity:1; }
+
+/* 空状态 */
+.empty-state {
+  text-align:center; padding:40px 20px; color:var(--text-l);
+}
+.empty-state .icon { font-size:48px; margin-bottom:12px; opacity:.6; }
+.empty-state p { font-size:14px; }
+
+/* 对话框弹窗 */
+.modal-overlay {
+  position:fixed; inset:0; background:rgba(0,0,0,.4);
+  display:flex; align-items:center; justify-content:center; z-index:100;
+  display:none;
+}
+.modal-overlay.show { display:flex; }
+.modal-box {
+  background:var(--white); border-radius:16px; width:90%; max-width:360px;
+  padding:24px; box-shadow:0 8px 40px rgba(0,0,0,.15);
+}
+.modal-box h3 { font-size:17px; margin-bottom:12px; }
+.modal-box input, .modal-box textarea {
+  width:100%; padding:10px 12px; border:1px solid rgba(0,0,0,.1); border-radius:8px;
+  font-size:14px; margin-bottom:10px; font-family:inherit;
+}
+.modal-box textarea { height:60px; resize:none; }
+.modal-box .btns { display:flex; gap:8px; justify-content:flex-end; margin-top:8px; }
+</style>
+</head>
+<body>
+
+<!-- 缓存状态条 -->
+<div id="cacheBar" style="display:none; background:#fef3c7; color:#92400e; text-align:center; padding:8px 16px; font-size:13px; border-radius:8px; margin-bottom:8px;" onclick="this.style.display='none'"></div>
+
+<div class="header">
+  <h1>📋 展会扫码采集</h1>
+  <span class="badge" id="netBadge">🔵 在线</span>
+</div>
+
+<!-- 客户选择 -->
+<div class="client-bar">
+  <select id="clientSelect" onchange="onClientChange()">
+    <option value="">-- 选择客户 --</option>
+  </select>
+  <button class="btn btn-outline btn-sm" onclick="openNewClientModal()">+新建</button>
+</div>
+
+<!-- 扫码区 -->
+<div class="scan-section">
+  <div id="reader"></div>
+  <div class="status" id="scanStatus">对准产品条码自动扫描</div>
+  <div class="scan-actions">
+    <button class="btn btn-outline btn-sm" id="btnToggleScan" onclick="toggleScanner()">⏸ 暂停扫描</button>
+  </div>
+</div>
+
+<!-- 手动输入 -->
+<div class="manual-add">
+  <input type="text" id="manualCode" placeholder="手动输入产品编号..." onkeydown="if(event.key==='Enter')addManual()">
+  <button class="btn btn-blue btn-sm" onclick="addManual()">添加</button>
+</div>
+
+<!-- 产品清单 -->
+<div class="list-header">
+  <h3>📦 意向产品清单</h3>
+  <span class="count" id="itemCount">0 件</span>
+</div>
+<div id="itemList"><div class="empty-state"><div class="icon">📭</div><p>扫码或手动输入产品编号<br>自动加入清单</p></div></div>
+
+<!-- 底部栏 -->
+<div class="footer-bar">
+  <span class="total" id="totalInfo">共 0 件</span>
+  <div class="actions">
+    <button class="btn btn-outline btn-sm" onclick="exportCSV()">📥 导出CSV</button>
+    <button class="btn btn-green btn-sm" id="btnSync" disabled onclick="syncToERP()">☁️ 同步ERP</button>
+  </div>
+</div>
+
+<!-- Toast -->
+<div class="toast" id="toast"></div>
+
+<!-- 新建客户弹窗 -->
+<div class="modal-overlay" id="newClientModal">
+  <div class="modal-box">
+    <h3>新建客户</h3>
+    <input type="text" id="newClientName" placeholder="客户名称" autocomplete="off">
+    <input type="text" id="newClientCompany" placeholder="公司名称（可选）" autocomplete="off">
+    <div class="btns">
+      <button class="btn btn-outline btn-sm" onclick="closeNewClientModal()">取消</button>
+      <button class="btn btn-blue btn-sm" onclick="createClient()">确认</button>
+    </div>
+  </div>
+</div>
+
+<!-- 备注弹窗 -->
+<div class="modal-overlay" id="noteModal">
+  <div class="modal-box">
+    <h3>添加备注</h3>
+    <p style="font-size:14px;color:var(--text-l);margin-bottom:8px;" id="noteProductCode"></p>
+    <textarea id="noteText" placeholder="客户备注、特殊需求..."></textarea>
+    <div class="btns">
+      <button class="btn btn-outline btn-sm" onclick="closeNoteModal()">取消</button>
+      <button class="btn btn-blue btn-sm" onclick="saveNote()">保存</button>
+    </div>
+  </div>
+</div>
+
+<script>
+/* ═══════════════════════════════════════════
+   数据层：IndexedDB
+   ═══════════════════════════════════════════ */
+const DB_NAME = 'expo_scanner';
+const DB_VER = 1;
+let db;
+
+function openDB() {
+  return new Promise((resolve, reject) => {
+    const req = indexedDB.open(DB_NAME, DB_VER);
+    req.onupgradeneeded = (e) => {
+      const d = e.target.result;
+      if (!d.objectStoreNames.contains('clients')) {
+        d.createObjectStore('clients', { keyPath:'id', autoIncrement:true });
+      }
+      if (!d.objectStoreNames.contains('items')) {
+        const store = d.createObjectStore('items', { keyPath:'id', autoIncrement:true });
+        store.createIndex('clientId', 'clientId');
+        store.createIndex('code', 'code');
+      }
+    };
+    req.onsuccess = (e) => { db = e.target.result; resolve(); };
+    req.onerror = () => reject(req.error);
+  });
+}
+
+function dbOp(storeName, mode) {
+  const tx = db.transaction(storeName, mode);
+  return tx.objectStore(storeName);
+}
+
+/* ── 客户操作 ── */
+async function getClients() {
+  return new Promise(r => {
+    const store = dbOp('clients', 'readonly');
+    const req = store.getAll();
+    req.onsuccess = () => r(req.result || []);
+    req.onerror = () => r([]);
+  });
+}
+async function addClient(name, company) {
+  return new Promise(r => {
+    const store = dbOp('clients', 'readwrite');
+    const req = store.add({ name, company, createdAt: Date.now() });
+    req.onsuccess = () => r(req.result);
+    req.onerror = () => r(null);
+  });
+}
+
+/* ── 产品操作 ── */
+async function getItems(clientId) {
+  return new Promise(r => {
+    const store = dbOp('items', 'readonly');
+    const idx = store.index('clientId');
+    const req = idx.getAll(clientId);
+    req.onsuccess = () => r(req.result || []);
+    req.onerror = () => r([]);
+  });
+}
+async function addItem(clientId, code) {
+  return new Promise(r => {
+    // 去重：同一客户+同一产品编号不重复加
+    const store = dbOp('items', 'readwrite');
+    const idx = store.index('code');
+    const check = idx.getAll(code);
+    check.onsuccess = () => {
+      const exists = (check.result||[]).some(i => i.clientId === clientId);
+      if (exists) { r(null); return; }
+      const req = store.add({ clientId, code, note:'', createdAt: Date.now() });
+      req.onsuccess = () => r(req.result);
+      req.onerror = () => r(null);
+    };
+  });
+}
+async function updateItemNote(id, note) {
+  return new Promise(r => {
+    const store = dbOp('items', 'readwrite');
+    const req = store.get(id);
+    req.onsuccess = () => {
+      if (!req.result) { r(false); return; }
+      const item = req.result; item.note = note;
+      store.put(item).onsuccess = () => r(true);
+    };
+  });
+}
+async function deleteItem(id) {
+  return new Promise(r => {
+    const store = dbOp('items', 'readwrite');
+    store.delete(id).onsuccess = () => r(true);
+  });
+}
+
+/* ═══════════════════════════════════════════
+   界面层
+   ═══════════════════════════════════════════ */
+let currentClientId = null;
+let scannerActive = true;
+let html5QrCode = null;
+
+/* ── 初始化 ── */
+async function init() {
+  updateNetStatus();
+  // 注册 Service Worker + 缓存状态检测
+  if ('serviceWorker' in navigator) {
+    try {
+      const reg = await navigator.serviceWorker.register('sw.js');
+      const active = reg.active;
+      const waiting = reg.waiting;
+      if (!active && !waiting) {
+        showCacheBar('⚠️ 首次加载 — 请<b>刷新页面</b>以激活离线缓存，然后添加到主屏幕', 'warn');
+        reg.installing?.addEventListener('statechange', (e) => {
+          if (e.target.state === 'activated') {
+            showCacheBar('✅ 离线缓存已就绪 — 刷新后即可离线使用', 'ok');
+          }
+        });
+      } else if (active && !waiting) {
+        showCacheBar('✅ 离线缓存就绪 — 断网也能扫码采集', 'ok');
+      }
+      reg.addEventListener('updatefound', () => {
+        showCacheBar('🔄 新版本可用 — 刷新页面后生效', 'info');
+      });
+    } catch(e) {
+      console.warn('SW注册失败:', e);
+      showCacheBar('💡 离线缓存未启用 — 扫码采集功能仍可正常使用，建议添加到主屏幕', 'info');
+    }
+  } else {
+    showCacheBar('💡 离线缓存未启用 — 扫码采集功能正常，建议用系统自带浏览器打开', 'info');
+  }
+  await openDB();
+  await refreshClients();
+  startScanner();
+}
+
+function showCacheBar(msg, type) {
+  const bar = document.getElementById('cacheBar');
+  bar.innerHTML = msg;
+  bar.style.display = 'block';
+  bar.style.background = type==='ok' ? '#d1fae5' : type==='warn' ? '#fef3c7' : '#dbeafe';
+  bar.style.color = type==='ok' ? '#065f46' : type==='warn' ? '#92400e' : '#1e40af';
+  if (type === 'ok') setTimeout(() => { bar.style.display = 'none'; }, 4000);
+}
+function toast(msg) {
+  const el = document.getElementById('toast');
+  el.textContent = msg; el.classList.add('show');
+  clearTimeout(el._t); el._t = setTimeout(() => el.classList.remove('show'), 2000);
+}
+
+/* ── 客户 ── */
+async function refreshClients() {
+  const clients = await getClients();
+  const sel = document.getElementById('clientSelect');
+  sel.innerHTML = '<option value="">-- 选择客户 --</option>';
+  clients.forEach(c => {
+    const opt = document.createElement('option');
+    opt.value = c.id;
+    opt.textContent = c.company ? `${c.name} (${c.company})` : c.name;
+    sel.appendChild(opt);
+  });
+  // 恢复上次的选择
+  const saved = localStorage.getItem('expo_lastClient');
+  if (saved && clients.some(c => c.id == saved)) {
+    sel.value = saved;
+    currentClientId = parseInt(saved);
+  } else if (clients.length > 0) {
+    sel.value = clients[clients.length-1].id;
+    currentClientId = clients[clients.length-1].id;
+  }
+  if (currentClientId) refreshItems();
+}
+
+function onClientChange() {
+  const v = document.getElementById('clientSelect').value;
+  currentClientId = v ? parseInt(v) : null;
+  if (currentClientId) {
+    localStorage.setItem('expo_lastClient', currentClientId);
+    refreshItems();
+  } else {
+    document.getElementById('itemList').innerHTML = '<div class="empty-state"><div class="icon">👆</div><p>请先选择或新建客户</p></div>';
+    updateFooter();
+  }
+}
+
+function openNewClientModal() {
+  document.getElementById('newClientModal').classList.add('show');
+  document.getElementById('newClientName').focus();
+}
+function closeNewClientModal() {
+  document.getElementById('newClientModal').classList.remove('show');
+  document.getElementById('newClientName').value = '';
+  document.getElementById('newClientCompany').value = '';
+}
+async function createClient() {
+  const name = document.getElementById('newClientName').value.trim();
+  const company = document.getElementById('newClientCompany').value.trim();
+  if (!name) { toast('请输入客户名称'); return; }
+  await addClient(name, company);
+  closeNewClientModal();
+  await refreshClients();
+  // 自动选中
+  const clients = await getClients();
+  const last = clients[clients.length-1];
+  document.getElementById('clientSelect').value = last.id;
+  currentClientId = last.id;
+  localStorage.setItem('expo_lastClient', last.id);
+  refreshItems();
+  toast(`已添加客户：${name}`);
+}
+
+/* ── 产品清单 ── */
+async function refreshItems() {
+  if (!currentClientId) return;
+  const items = await getItems(currentClientId);
+  const list = document.getElementById('itemList');
+  if (items.length === 0) {
+    list.innerHTML = '<div class="empty-state"><div class="icon">📭</div><p>扫码或手动输入产品编号<br>自动加入清单</p></div>';
+  } else {
+    list.innerHTML = items.map((item, i) => `
+      <div class="item-card">
+        <span class="item-num">#${i+1}</span>
+        <div>
+          <div class="item-code">${escapeHtml(item.code)}</div>
+          ${item.note ? `<div class="item-note">📝 ${escapeHtml(item.note)}</div>` : ''}
+        </div>
+        <button class="btn btn-outline btn-sm" style="margin-left:auto;margin-right:4px;" onclick="openNoteModal(${item.id},'${escapeHtml(item.code)}')">备注</button>
+        <button class="item-del" onclick="removeItem(${item.id})">×</button>
+      </div>
+    `).join('');
+  }
+  updateFooter();
+}
+function updateFooter() {
+  const items = document.querySelectorAll('.item-card');
+  const count = items.length;
+  document.getElementById('itemCount').textContent = `${count} 件`;
+  document.getElementById('totalInfo').textContent = `共 ${count} 件`;
+  document.getElementById('btnSync').disabled = (count === 0);
+}
+
+/* ── 添加产品 ── */
+async function doAddProduct(code) {
+  if (!currentClientId) { toast('请先选择客户'); return; }
+  if (!code || code.length < 2) { toast('产品编号无效'); return; }
+  const ok = await addItem(currentClientId, code.toUpperCase().trim());
+  if (ok === null) {
+    toast('该产品已在清单中');
+  } else {
+    toast(`✓ 已添加：${code}`);
+    refreshItems();
+  }
+}
+function addManual() {
+  const inp = document.getElementById('manualCode');
+  const code = inp.value.trim();
+  if (!code) return;
+  doAddProduct(code);
+  inp.value = '';
+}
+
+/* ── 扫码 ── */
+function startScanner() {
+  if (!html5QrCode) {
+    html5QrCode = new Html5Qrcode("reader");
+  }
+  html5QrCode.start(
+    { facingMode: "environment" },
+    {
+      fps: 10,
+      qrbox: { width: 250, height: 140 },
+      aspectRatio: 1.5,
+      formatsToSupport: [
+        Html5QrcodeSupportedFormats.QR_CODE,
+        Html5QrcodeSupportedFormats.CODE_128,
+        Html5QrcodeSupportedFormats.CODE_39,
+        Html5QrcodeSupportedFormats.EAN_13,
+        Html5QrcodeSupportedFormats.EAN_8,
+      ],
+    },
+    (decodedText) => {
+      // 条码扫到，先暂停避免重复扫
+      html5QrCode.pause(true);
+      document.getElementById('scanStatus').textContent = `识别到：${decodedText}`;
+      doAddProduct(decodedText).then(() => {
+        // 1.5秒后恢复扫描
+        setTimeout(() => {
+          if (scannerActive) {
+            html5QrCode.resume();
+            document.getElementById('scanStatus').textContent = '对准产品条码自动扫描';
+          }
+        }, 1500);
+      });
+    },
+    (err) => { /* 忽略扫描中的正常错误 */ }
+  ).catch(err => {
+    console.error('扫码启动失败:', err);
+    document.getElementById('scanStatus').textContent = '摄像头不可用，请手动输入';
+  });
+}
+function toggleScanner() {
+  const btn = document.getElementById('btnToggleScan');
+  if (scannerActive) {
+    if (html5QrCode) html5QrCode.pause(true);
+    scannerActive = false;
+    btn.textContent = '▶ 恢复扫描';
+    document.getElementById('scanStatus').textContent = '扫描已暂停';
+  } else {
+    if (html5QrCode) {
+      html5QrCode.resume();
+      document.getElementById('scanStatus').textContent = '对准产品条码自动扫描';
+    } else {
+      startScanner();
+    }
+    scannerActive = true;
+    btn.textContent = '⏸ 暂停扫描';
+  }
+}
+
+/* ── 备注 ── */
+let noteItemId = null;
+function openNoteModal(id, code) {
+  noteItemId = id;
+  document.getElementById('noteProductCode').textContent = code;
+  document.getElementById('noteModal').classList.add('show');
+  document.getElementById('noteText').focus();
+}
+function closeNoteModal() {
+  document.getElementById('noteModal').classList.remove('show');
+  document.getElementById('noteText').value = '';
+  noteItemId = null;
+}
+async function saveNote() {
+  if (!noteItemId) return;
+  await updateItemNote(noteItemId, document.getElementById('noteText').value.trim());
+  closeNoteModal();
+  refreshItems();
+}
+
+/* ── 删除 ── */
+async function removeItem(id) {
+  if (!confirm('确认移除此产品？')) return;
+  await deleteItem(id);
+  refreshItems();
+  toast('已移除');
+}
+
+/* ── 导出CSV ── */
+async function exportCSV() {
+  if (!currentClientId) { toast('请先选择客户'); return; }
+  const items = await getItems(currentClientId);
+  if (items.length === 0) { toast('清单为空'); return; }
+  const clients = await getClients();
+  const client = clients.find(c => c.id === currentClientId);
+  const clientName = client ? (client.company || client.name) : '未知客户';
+
+  let csv = '\uFEFF客户,产品编号,备注,采集时间\n'; // BOM for Excel
+  items.forEach(i => {
+    const d = new Date(i.createdAt);
+    const ts = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')} ${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`;
+    csv += `${clientName},"${i.code}","${i.note}",${ts}\n`;
+  });
+
+  const blob = new Blob([csv], { type:'text/csv;charset=utf-8' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `展会意向_${clientName}_${new Date().toISOString().slice(0,10)}.csv`;
+  a.click();
+  URL.revokeObjectURL(url);
+  toast('CSV已导出');
+}
+
+/* ── 同步ERP ── */
+async function syncToERP() {
+  // 检测后端是否可达
+  try {
+    const resp = await fetch('/api/ping', { method:'HEAD', signal:AbortSignal.timeout(3000) });
+    if (!resp.ok) throw new Error('后端不可达');
+  } catch(e) {
+    toast('⚠️ 后端不可达（展会现场正常现象）\n回公司连内网后重试');
+    return;
+  }
+  // TODO: 实际同步逻辑（后端开发中）
+  toast('ERP同步功能待后端上线');
+}
+
+/* ── 网络状态感知 ── */
+function updateNetStatus() {
+  const badge = document.getElementById('netBadge');
+  if (navigator.onLine) {
+    badge.textContent = '🔵 在线';
+    badge.style.background = 'rgba(58,124,195,.1)';
+    badge.style.color = 'var(--blue-l)';
+    document.getElementById('scanStatus').textContent = '对准产品条码自动扫描';
+  } else {
+    badge.textContent = '📴 离线';
+    badge.style.background = 'rgba(232,93,58,.1)';
+    badge.style.color = 'var(--red)';
+    document.getElementById('scanStatus').textContent = '离线模式 · 数据存本地 · 回公司同步';
+  }
+}
+window.addEventListener('online', updateNetStatus);
+window.addEventListener('offline', updateNetStatus);
+
+function escapeHtml(s) {
+  const d = document.createElement('div');
+  d.textContent = s;
+  return d.innerHTML;
+}
+
+/* ── 启动 ── */
+init();
+</script>
+</body>
+</html>

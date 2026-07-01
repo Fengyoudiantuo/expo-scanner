@@ -1,0 +1,9 @@
+{
+  "name": "展会扫码采集",
+  "short_name": "扫码采集",
+  "start_url": "/展会扫码采集.html",
+  "display": "standalone",
+  "background_color": "#f4f7fb",
+  "theme_color": "#1a4a7a",
+  "icons": []
+}
