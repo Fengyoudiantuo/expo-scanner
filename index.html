@@ -175,6 +175,11 @@ body {
   <button class="btn btn-outline btn-sm" onclick="openNewClientModal()">+新建</button>
 </div>
 
+<!-- 联系方式 -->
+<div class="client-bar" style="margin-top:-8px;">
+  <input type="text" id="contactInput" placeholder="客户联系方式（手机/微信）..." onchange="onContactChange()" style="flex:1;padding:10px 12px;border:1px solid rgba(0,0,0,.1);border-radius:var(--radius);font-size:14px;background:var(--white);color:var(--text);">
+</div>
+
 <!-- 扫码区 -->
 <div class="scan-section">
   <div id="reader"></div>
@@ -411,10 +416,24 @@ function onClientChange() {
   currentClientId = v ? parseInt(v) : null;
   if (currentClientId) {
     localStorage.setItem('expo_lastClient', currentClientId);
+    // 加载该客户的联系方式
+    const saved = localStorage.getItem(`expo_contact_${currentClientId}`);
+    document.getElementById('contactInput').value = saved || '';
     refreshItems();
   } else {
     document.getElementById('itemList').innerHTML = '<div class="empty-state"><div class="icon">👆</div><p>请先选择或新建客户</p></div>';
+    document.getElementById('contactInput').value = '';
     updateFooter();
+  }
+}
+
+function onContactChange() {
+  if (!currentClientId) return;
+  const val = document.getElementById('contactInput').value.trim();
+  if (val) {
+    localStorage.setItem(`expo_contact_${currentClientId}`, val);
+  } else {
+    localStorage.removeItem(`expo_contact_${currentClientId}`);
   }
 }
 
@@ -589,11 +608,13 @@ async function exportCSV() {
   const client = clients.find(c => c.id === currentClientId);
   const clientName = client ? (client.company || client.name) : '未知客户';
 
-  let csv = '\uFEFF客户,产品编号,备注,采集时间\n'; // BOM for Excel
+  const contact = localStorage.getItem(`expo_contact_${currentClientId}`) || '';
+
+  let csv = '\uFEFF客户,联系方式,产品编号,备注,采集时间\n'; // BOM for Excel
   items.forEach(i => {
     const d = new Date(i.createdAt);
     const ts = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')} ${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`;
-    csv += `${clientName},"${i.code}","${i.note}",${ts}\n`;
+    csv += `${clientName},"${contact}","${i.code}","${i.note}",${ts}\n`;
   });
 
   const blob = new Blob([csv], { type:'text/csv;charset=utf-8' });
