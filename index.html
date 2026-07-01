@@ -176,9 +176,13 @@ body {
 </div>
 
 <!-- 联系方式 -->
-<div class="client-bar" style="margin-top:-8px; gap:6px;">
-  <input type="tel" id="phoneInput" maxlength="11" placeholder="手机号（11位）" onchange="onPhoneChange()" oninput="this.value=this.value.replace(/\D/g,'')" style="flex:1;padding:10px 12px;border:1px solid rgba(0,0,0,.15);border-radius:var(--radius);font-size:14px;background:var(--white);color:var(--text);">
-  <input type="text" id="otherContactInput" placeholder="微信/邮箱/座机..." onchange="onOtherContactChange()" style="flex:1;padding:10px 12px;border:1px solid rgba(0,0,0,.15);border-radius:var(--radius);font-size:14px;background:var(--white);color:var(--text);">
+<div class="client-bar" style="margin-top:-8px;">
+  <input type="tel" id="phoneInput" maxlength="11" placeholder="联系方式:手机号（11位，纯数字）" onchange="onPhoneChange()" oninput="this.value=this.value.replace(/\D/g,'')" style="flex:1;padding:10px 12px;border:1px solid rgba(0,0,0,.15);border-radius:var(--radius);font-size:14px;background:var(--white);color:var(--text);">
+</div>
+
+<!-- 其他联系方式 -->
+<div class="client-bar" style="margin-top:-8px;">
+  <input type="text" id="otherContactInput" placeholder="其他联系方式:微信/邮箱/座机号..." onchange="onOtherContactChange()" style="flex:1;padding:10px 12px;border:1px solid rgba(0,0,0,.15);border-radius:var(--radius);font-size:14px;background:var(--white);color:var(--text);">
 </div>
 
 <!-- 扫码区 -->
