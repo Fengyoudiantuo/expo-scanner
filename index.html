@@ -665,22 +665,56 @@ async function syncToERP() {
 }
 
 /* ── 网络状态感知 ── */
-function updateNetStatus() {
+// 内网检测地址——部署到内网时改成实际的 ERP 健康检查接口
+const INTRANET_CHECK_URL = '/api/ping';
+let netStatus = 'checking'; // 'intranet' | 'internet' | 'offline'
+
+async function checkNetStatus() {
   const badge = document.getElementById('netBadge');
-  if (navigator.onLine) {
-    badge.textContent = '🔵 在线';
-    badge.style.background = 'rgba(58,124,195,.1)';
-    badge.style.color = 'var(--blue-l)';
-    document.getElementById('scanStatus').textContent = '对准产品条码自动扫描';
-  } else {
+
+  if (!navigator.onLine) {
+    netStatus = 'offline';
     badge.textContent = '📴 离线';
     badge.style.background = 'rgba(232,93,58,.1)';
     badge.style.color = 'var(--red)';
     document.getElementById('scanStatus').textContent = '离线模式 · 数据存本地 · 回公司同步';
+    document.getElementById('btnSync').disabled = true;
+    return;
   }
+
+  // 能上网，进一步判断是内网还是外网
+  try {
+    const resp = await fetch(INTRANET_CHECK_URL, {
+      method: 'HEAD',
+      signal: AbortSignal.timeout(3000)
+    });
+    if (resp.ok) {
+      netStatus = 'intranet';
+      badge.textContent = '🔵 在线';
+      badge.style.background = 'rgba(58,124,195,.1)';
+      badge.style.color = 'var(--blue-l)';
+      document.getElementById('scanStatus').textContent = '对准产品条码自动扫描';
+      updateFooter(); // 恢复同步按钮状态
+      return;
+    }
+  } catch(e) { /* 不通 = 外网 */ }
+
+  netStatus = 'internet';
+  badge.textContent = '🔴 在线';
+  badge.style.background = 'rgba(232,93,58,.1)';
+  badge.style.color = 'var(--red)';
+  document.getElementById('scanStatus').textContent = '外网环境 · 扫码采集正常 · 无法同步ERP';
+  document.getElementById('btnSync').disabled = true;
 }
+
+function updateNetStatus() { checkNetStatus(); }
+
 window.addEventListener('online', updateNetStatus);
 window.addEventListener('offline', updateNetStatus);
+// 切回前台时重检（用户可能切换了WiFi）
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState === 'visible') updateNetStatus();
+});
 
 function escapeHtml(s) {
   const d = document.createElement('div');
